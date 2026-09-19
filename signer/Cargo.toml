@@ -1,0 +1,30 @@
+[package]
+name = "thadam-signer"
+version = "0.1.0"
+edition = "2021"
+description = "Recovery phrase, key derivation and address encoding. The only layer with keys."
+publish = false
+
+[dependencies]
+# The registry supplies the network constants. It has no dependencies of its
+# own and must keep none (ARCHITECTURE.md §2).
+thadam-registry = { path = "../registry/core" }
+
+# Standard, widely-used implementations of the BIP mechanics.
+#
+# This crate used to hand-roll bech32, BIP-32, BIP-39, base58check, HMAC and
+# PBKDF2. That was a deliberate learning choice, and it introduced a real bug:
+# BIP-39's required NFKD normalisation was missing, so a passphrase containing
+# a combining accent silently derived a different wallet from every other
+# implementation. It was caught by testing against these very crates.
+#
+# Real users make that trade indefensible. These implementations have years of
+# review and bug reports behind them; the hand-written ones had none.
+# `secp256k1` wraps libsecp256k1, the same audited C library Bitcoin Core uses.
+bitcoin = "0.32"
+bip39 = "2.1"
+secp256k1 = "0.29"
+
+[dev-dependencies]
+bip39 = "2.1"
+rand = "0.8"
