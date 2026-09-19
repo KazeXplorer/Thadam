@@ -1,0 +1,14 @@
+# Repository-wide line-ending policy.
+#
+# Two things here break outright under a CRLF checkout on Windows:
+#
+#   - signer/wordlist/english.txt is verified against the SHA-256 published
+#     with BIP-39. CRLF changes every line and the hash test fails.
+#   - registry/conformance/ diffs generated output against a checked-in
+#     fixture. CRLF makes every line differ.
+#
+# Neither is a style preference, so pin LF for everything textual.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.wasm binary
