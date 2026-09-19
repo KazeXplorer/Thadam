@@ -1,0 +1,17 @@
+{
+  "name": "@thadam/registry",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lookup-only catalogue of Thadam's test-network chains and environments.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test \"test/**/*.test.ts\"",
+    "dump": "node --experimental-strip-types bin/dump-environments.ts"
+  },
+  "engines": {
+    "node": ">=22.6"
+  }
+}
