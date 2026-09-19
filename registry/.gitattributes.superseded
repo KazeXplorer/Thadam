@@ -1,0 +1,7 @@
+# The conformance check diffs generated output against a checked-in fixture.
+# A CRLF checkout on Windows would make every line differ. Pin these to LF.
+*.json  text eol=lf
+*.rs    text eol=lf
+*.ts    text eol=lf
+*.toml  text eol=lf
+*.sh    text eol=lf
