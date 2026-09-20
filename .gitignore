@@ -1,0 +1,11 @@
+# JetBrains IDE
+.idea/
+
+# Stale inner workspace shadow — not the project root
+Thadam/
+
+# macOS metadata
+.DS_Store
+
+# Rust build artefacts at workspace root (if any)
+/target/
