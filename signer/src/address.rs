@@ -74,6 +74,19 @@ impl Address {
     pub fn network(&self) -> BitcoinNetwork {
         self.network
     }
+
+    /// The output script that pays to this address.
+    ///
+    /// Exists so the transaction builder can assemble outputs without naming
+    /// the library's network type itself — §2's chokepoint stays in this crate.
+    pub fn script_pubkey(&self) -> Result<bitcoin::ScriptBuf, Error> {
+        let parsed: bitcoin::Address<bitcoin::address::NetworkUnchecked> =
+            self.address.parse().map_err(|_| Error::MalformedAddress)?;
+        Ok(parsed
+            .require_network(to_library_network(self.network))
+            .map_err(|_| Error::MalformedAddress)?
+            .script_pubkey())
+    }
 }
 
 impl std::fmt::Display for Address {
@@ -84,11 +97,13 @@ impl std::fmt::Display for Address {
 
 /// The library's HRP selector for one of our networks.
 ///
-/// Like [`to_library_network`], this is an exhaustive match with no mainnet
-/// arm. `KnownHrp::Mainnet` is nameable in the dependency and is not named
-/// here, which is the whole of §2's remaining guarantee.
+/// Like `to_library_network`, an exhaustive match with no fallback arm, so a
+/// new network cannot be added without deciding its prefix here. The result is
+/// checked against the registry's own constant in [`Address::p2wpkh`], so the
+/// library and the registry cannot quietly disagree about what `tb` means.
 fn known_hrp(network: BitcoinNetwork) -> KnownHrp {
     match network {
+        BitcoinNetwork::Mainnet => KnownHrp::Mainnet,
         BitcoinNetwork::Testnet4 | BitcoinNetwork::Signet => KnownHrp::Testnets,
         BitcoinNetwork::Regtest => KnownHrp::Regtest,
     }

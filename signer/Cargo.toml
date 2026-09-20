@@ -8,7 +8,7 @@ publish = false
 [dependencies]
 # The registry supplies the network constants. It has no dependencies of its
 # own and must keep none (ARCHITECTURE.md §2).
-thadam-registry = { path = "../registry/core" }
+thadam-registry = { path = "../registry" }
 
 # Standard, widely-used implementations of the BIP mechanics.
 #
@@ -24,6 +24,10 @@ thadam-registry = { path = "../registry/core" }
 bitcoin = "0.32"
 bip39 = "2.1"
 secp256k1 = "0.29"
+
+# Used only for OsRng in generate_entropy. Minimal features: `getrandom` wires
+# OsRng to the OS syscall; `std` gives RngCore. No StdRng, no thread-local RNG.
+rand = { version = "0.8", default-features = false, features = ["getrandom", "std"] }
 
 [dev-dependencies]
 bip39 = "2.1"

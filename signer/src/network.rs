@@ -1,56 +1,54 @@
-//! The mainnet chokepoint.
+//! The network chokepoint.
 //!
-//! ARCHITECTURE.md §2. This module exists because of one unavoidable fact:
-//! **every standard Bitcoin library knows about mainnet.** Linking
-//! `rust-bitcoin` puts `Network::Bitcoin`, the `bc` prefix and coin type 0 into
-//! the binary, so §2's original wording — "those values do not exist in the
-//! binary" — stopped being literally true the day this crate started using
-//! audited code instead of hand-written code.
+//! README §2: a user can never be on a network they did not choose. This
+//! module is where Thadam's network type becomes the library's, and it is the
+//! only place that conversion happens.
 //!
-//! That was the right trade. Unreviewed cryptography written for a project
-//! with real users is a worse risk than a constant sitting unused in a
-//! dependency. But the guarantee had to be restated honestly rather than
-//! quietly weakened, so §2 now reads:
+//! # Why a chokepoint rather than a ban
 //!
-//! > No Thadam type can name mainnet, and exactly one function converts to the
-//! > library's network type.
+//! An earlier version of this file existed to make mainnet *unreachable* —
+//! Thadam was testnet-only, and the rule was that mainnet parameters must not
+//! be selectable at all. Mainnet is now a supported network, so that rule is
+//! gone. What replaced it is narrower: mainnet is reachable, but only by a
+//! caller who named it.
 //!
-//! That function is [`to_library_network`]. It is the only door, it is an
-//! exhaustive match over an enum with no mainnet variant, and
-//! `tests/mainnet_guard.rs` asserts that nothing reachable through this crate's
-//! public API can produce a mainnet address.
+//! A single conversion point is what makes that checkable. With one door, the
+//! question "can the network change without the user acting?" has one place to
+//! look. With conversions scattered across three crates it has none.
 //!
 //! # Rules for this module
 //!
-//! - Nothing outside this module may name [`bitcoin::Network`].
-//! - Nothing may add a fallback, a default, or a `_ =>` arm below.
-//! - If a second conversion function appears anywhere, the chokepoint is gone
-//!   and §2 is no longer enforced by anything.
+//! - Nothing outside this module and `address.rs` may name [`bitcoin::Network`]
+//!   or `KnownHrp`.
+//! - No fallback, no default, no `_ =>` arm. Every match here is exhaustive
+//!   over [`BitcoinNetwork`], so a new network cannot be added without a
+//!   deliberate decision at this line.
+//! - Nothing here may infer a network from an address, a URL or stored state.
+//!   The conversion takes a network; it never produces one.
 
 use bitcoin::Network;
 use thadam_registry::BitcoinNetwork;
 
 /// Converts one of Thadam's networks to the library's.
 ///
-/// The match is exhaustive over [`BitcoinNetwork`], which has no mainnet
-/// variant, so there is no input to this function that returns
-/// `Network::Bitcoin`. Adding a mainnet variant upstream would make this
-/// function stop compiling — which is the point, and is the same mechanism the
-/// registry uses.
-///
-/// `Network::Signet` stands in for testnet4. ARCHITECTURE.md §8: testnet4,
-/// testnet3 and signet share every encoding constant, so the choice is
-/// invisible in any address or key this crate produces. It matters only if a
-/// caller ever needs consensus rules rather than encodings, which nothing here
-/// does.
+/// `Network::Signet` stands in for testnet4. README §9: testnet4, testnet3 and
+/// signet share every encoding constant, so the choice is invisible in any
+/// address or key this crate produces. It would matter only to code needing
+/// consensus rules rather than encodings, and nothing here does.
 pub(crate) fn to_library_network(network: BitcoinNetwork) -> Network {
     match network {
+        BitcoinNetwork::Mainnet => Network::Bitcoin,
         BitcoinNetwork::Testnet4 => Network::Signet,
         BitcoinNetwork::Signet => Network::Signet,
         BitcoinNetwork::Regtest => Network::Regtest,
     }
 }
 
-/// The address prefix mainnet would use, recorded here only so its absence can
-/// be asserted. Never construct an address with this.
-pub const FORBIDDEN_MAINNET_HRP: &str = "bc";
+/// The address prefix of each network, as the registry states it.
+///
+/// Re-exported so guard tests can assert that what this crate *produces*
+/// carries the prefix the registry *declares*, without either side being able
+/// to define the answer on its own.
+pub fn expected_hrp(network: BitcoinNetwork) -> &'static str {
+    network.params().bech32_hrp
+}
