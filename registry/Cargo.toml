@@ -1,0 +1,16 @@
+[package]
+name = "thadam-registry"
+version = "0.1.0"
+edition = "2021"
+description = "Lookup-only catalogue of Bitcoin networks and their parameters."
+publish = false
+
+[dependencies]
+# Intentionally empty, and it should stay that way.
+#
+# This crate holds consensus constants — the values that decide which chain an
+# address belongs to. README §2 requires that a network is never inferred or
+# defaulted. A deserialization dependency here would be the first step toward
+# loading those constants from data at runtime, which is how a network gets
+# chosen by something other than the user. If this crate ever needs a
+# dependency, that is a design change to discuss, not a convenience.
