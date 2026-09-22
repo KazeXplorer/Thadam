@@ -1,0 +1,32 @@
+[package]
+name = "thadam-ffi"
+version = "0.1.0"
+edition = "2021"
+description = "UniFFI boundary — the .so Android loads."
+publish = false
+
+[lib]
+# cdylib → .so for Android (JNI via UniFFI)
+# staticlib → .a for potential static linking on iOS / tests
+crate-type = ["cdylib", "staticlib"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+
+[dependencies]
+thadam-registry = { path = "../registry" }
+thadam-signer   = { path = "../signer"   }
+thadam-builder  = { path = "../builder"  }
+
+bitcoin = "0.32"
+
+# cli feature is needed for uniffi_bindgen_main() in the bindgen binary.
+# It adds bindgen-related code but does not affect the library's ABI.
+uniffi = { version = "0.28", features = ["cli"] }
+
+# Error display boilerplate for FfiError variants.
+thiserror = "1"
+
+[dev-dependencies]
+thadam-signer = { path = "../signer" }
