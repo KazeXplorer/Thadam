@@ -1,0 +1,539 @@
+basePath: /
+definitions:
+  bitcoin.FeeEstimates:
+    properties:
+      economy:
+        allOf:
+        - $ref: '#/definitions/bitcoin.FeeRate'
+        description: Economy targets roughly 10+ block confirmation.
+      fast:
+        allOf:
+        - $ref: '#/definitions/bitcoin.FeeRate'
+        description: Fast targets roughly 1-2 block confirmation.
+      medium:
+        allOf:
+        - $ref: '#/definitions/bitcoin.FeeRate'
+        description: Medium targets roughly 3-6 block confirmation.
+    type: object
+  bitcoin.FeeRate:
+    properties:
+      confirmationReason:
+        description: |-
+          ConfirmationReason is a human-readable explanation for why confirmation
+          is required. Empty when RequiresConfirmation is false.
+        type: string
+      requiresConfirmation:
+        description: |-
+          RequiresConfirmation is true when the rate exceeds WarningThresholdSatPerVB.
+
+          The mobile app must show an explicit confirmation screen before
+          broadcasting any transaction built at this rate. This is the "explicit
+          confirmation for anything unusual" that A.14 mandates.
+        type: boolean
+      satPerVB:
+        description: SatPerVB is the fee rate in satoshis per virtual byte.
+        format: float64
+        type: number
+    type: object
+  bitcoin.Transaction:
+    properties:
+      fee:
+        description: |-
+          Fee is the miner fee paid, in satoshis.
+          May be zero for coinbase transactions.
+        type: integer
+      status:
+        allOf:
+        - $ref: '#/definitions/bitcoin.TxStatus'
+        description: Status is the confirmation state of the transaction.
+      txid:
+        description: Txid is the transaction identifier, hex-encoded (64 characters).
+        type: string
+      vin:
+        description: |-
+          Vin is the list of inputs — the coins being spent by this transaction.
+          The mobile app compares input addresses against known wallet addresses to
+          determine whether the transaction is a send (wallet address in Vin) or a
+          receive (wallet address only in Vout).
+        items:
+          $ref: '#/definitions/bitcoin.TxInput'
+        type: array
+      vout:
+        description: |-
+          Vout is the list of outputs. The mobile app uses this to determine
+          which outputs belong to the wallet address and how much was received
+          or sent (by comparing with known wallet addresses).
+        items:
+          $ref: '#/definitions/bitcoin.TxOutput'
+        type: array
+    type: object
+  bitcoin.TxInput:
+    properties:
+      address:
+        description: |-
+          Address is the address that owned the spent output.
+          Esplora resolves this from prevout.scriptpubkey_address at no extra cost.
+          Empty for coinbase inputs and non-standard scripts.
+        type: string
+      prev_txid:
+        description: PrevTxid is the txid of the transaction whose output is being
+          spent.
+        type: string
+      prev_vout:
+        description: PrevVout is the output index within PrevTxid that is being spent.
+        type: integer
+    type: object
+  bitcoin.TxOutput:
+    properties:
+      address:
+        description: |-
+          Address is the bech32(m) address this output pays to.
+          Empty for non-standard scripts (OP_RETURN, bare multisig, etc.).
+        type: string
+      index:
+        description: |-
+          Index is the output's position within the transaction (0-based).
+          Stored here so callers do not have to track array position separately.
+        type: integer
+      value:
+        description: Value is the output value in satoshis.
+        type: integer
+    type: object
+  bitcoin.TxStatus:
+    properties:
+      block_height:
+        description: |-
+          BlockHeight is the height of the block that confirmed this transaction.
+          Zero when Confirmed is false.
+        type: integer
+      block_time:
+        description: |-
+          BlockTime is the Unix timestamp of the confirming block.
+          Zero when Confirmed is false.
+        type: integer
+      confirmed:
+        description: Confirmed is true when the transaction has at least one confirmation.
+        type: boolean
+    type: object
+  bitcoin.UTXO:
+    properties:
+      block_height:
+        description: |-
+          BlockHeight is the block height at which the output was confirmed.
+          Zero when Confirmed is false.
+        type: integer
+      confirmed:
+        description: |-
+          Confirmed is true when the transaction containing this output has at
+          least one confirmation. Unconfirmed UTXOs are included in the response
+          because the wallet may want to show a pending balance, but the builder
+          should not spend them for a send — it cannot know whether they will
+          confirm, and spending them requires RBF support (§10).
+        type: boolean
+      txid:
+        description: |-
+          Txid is the transaction ID of the transaction that created this output,
+          as a hex string (64 characters, big-endian byte order).
+        type: string
+      value:
+        description: Value is the output's value in satoshis.
+        type: integer
+      vout:
+        description: Vout is the output index within that transaction.
+        type: integer
+    type: object
+  server.BlockHeightResponse:
+    properties:
+      height:
+        example: 3851042
+        type: integer
+    type: object
+  server.BroadcastResponse:
+    properties:
+      txid:
+        example: a1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d
+        type: string
+    type: object
+  server.ErrorResponse:
+    properties:
+      error:
+        example: provider unavailable for network testnet4
+        type: string
+    type: object
+  server.HealthResponse:
+    properties:
+      networks:
+        additionalProperties:
+          $ref: '#/definitions/server.NetworkHealthDoc'
+        type: object
+      status:
+        enum:
+        - ok
+        - degraded
+        example: ok
+        type: string
+    type: object
+  server.NetworkHealthDoc:
+    properties:
+      providers:
+        items:
+          $ref: '#/definitions/server.ProviderHealthDoc'
+        type: array
+      status:
+        enum:
+        - healthy
+        - degraded
+        - down
+        example: healthy
+        type: string
+    type: object
+  server.ProviderHealthDoc:
+    properties:
+      failures:
+        example: 0
+        type: integer
+      status:
+        enum:
+        - healthy
+        - degraded
+        - down
+        example: healthy
+        type: string
+      url:
+        example: https://mempool.space/testnet4/api
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: 'Bitcoin chain data proxy for the Thadam wallet. Aggregates data from
+    mempool.space (with blockstream.info failover) and exposes a single stable endpoint
+    for the mobile app. Supported networks: testnet4, signet.'
+  title: Thadam Chain Service
+  version: 1.0.0
+paths:
+  /bitcoin/{network}/addresses/{address}/txs:
+    get:
+      description: Returns confirmed and unconfirmed transactions for the address,
+        newest first. Use /txs/chain/{last_seen_txid} to paginate through large histories.
+      parameters:
+      - description: Bitcoin network
+        enum:
+        - testnet4
+        - signet
+        example: testnet4
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Bitcoin address
+        example: tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx
+        in: path
+        name: address
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of transactions (empty array if none)
+          schema:
+            items:
+              $ref: '#/definitions/bitcoin.Transaction'
+            type: array
+        "400":
+          description: Missing or invalid address
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: Network not configured
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "502":
+          description: No upstream provider reachable
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Transaction history for an address
+      tags:
+      - address
+  /bitcoin/{network}/addresses/{address}/txs/chain/{last_seen_txid}:
+    get:
+      description: 'Returns the next page of confirmed transactions after last_seen_txid,
+        newest first (up to 25). Unconfirmed transactions are not included — use /txs
+        for those. Designed for incremental sync: the mobile app stores confirmed
+        txs locally and calls this to page back through history without re-fetching.'
+      parameters:
+      - description: Bitcoin network
+        enum:
+        - testnet4
+        - signet
+        example: testnet4
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Bitcoin address
+        example: tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx
+        in: path
+        name: address
+        required: true
+        type: string
+      - description: txid of the last transaction on the previous page
+        example: a1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d
+        in: path
+        name: last_seen_txid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Next page of confirmed transactions (empty array if no more)
+          schema:
+            items:
+              $ref: '#/definitions/bitcoin.Transaction'
+            type: array
+        "400":
+          description: Missing address or last_seen_txid
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: Network not configured or txid not found
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "502":
+          description: No upstream provider reachable
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Paginated confirmed transaction history
+      tags:
+      - address
+  /bitcoin/{network}/addresses/{address}/utxos:
+    get:
+      description: Returns all unspent transaction outputs for the given address.
+        Includes confirmed and unconfirmed UTXOs. The mobile app filters to confirmed-only
+        when building transactions.
+      parameters:
+      - description: Bitcoin network
+        enum:
+        - testnet4
+        - signet
+        example: testnet4
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Bitcoin address
+        example: tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx
+        in: path
+        name: address
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of UTXOs (empty array if none)
+          schema:
+            items:
+              $ref: '#/definitions/bitcoin.UTXO'
+            type: array
+        "400":
+          description: Missing or invalid address
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: Network not configured
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "502":
+          description: No upstream provider reachable
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: List UTXOs for an address
+      tags:
+      - address
+  /bitcoin/{network}/blocks/tip/height:
+    get:
+      description: 'Returns the current confirmed chain tip height. The mobile app
+        uses this with a transaction''s block_height to compute confirmations: confirmations
+        = tipHeight - tx.block_height + 1.'
+      parameters:
+      - description: Bitcoin network
+        enum:
+        - testnet4
+        - signet
+        example: testnet4
+        in: path
+        name: network
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Current chain tip height
+          schema:
+            $ref: '#/definitions/server.BlockHeightResponse'
+        "404":
+          description: Network not configured
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "502":
+          description: No upstream provider reachable
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Current best block height
+      tags:
+      - blocks
+  /bitcoin/{network}/broadcast:
+    post:
+      consumes:
+      - text/plain
+      description: Accepts a hex-encoded raw signed transaction (plain text body)
+        and submits it to the Bitcoin network via the configured provider. Returns
+        the txid on success. 422 means the provider rejected the tx (invalid script,
+        insufficient fee, double-spend, etc.) — distinct from 502 which means the
+        provider was unreachable. The service does not inspect or sign the transaction.
+      parameters:
+      - description: Bitcoin network
+        enum:
+        - testnet4
+        - signet
+        example: testnet4
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Hex-encoded signed raw transaction
+        in: body
+        name: tx
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transaction accepted; txid returned
+          schema:
+            $ref: '#/definitions/server.BroadcastResponse'
+        "400":
+          description: Empty or unreadable request body
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: Network not configured
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "422":
+          description: Transaction rejected by provider (invalid tx, double-spend,
+            etc.)
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "502":
+          description: No upstream provider reachable
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Broadcast a signed transaction
+      tags:
+      - transaction
+  /bitcoin/{network}/fee-estimates:
+    get:
+      description: 'Returns three fee tiers (fast / medium / economy) in sat/vB. When
+        requires_confirmation is true the mobile app must show an explicit confirmation
+        screen before broadcast (ARCHITECTURE.md A.14). All rates are bounds-checked:
+        below MinSatPerVB or above MaxSatPerVB are rejected before being relayed.'
+      parameters:
+      - description: Bitcoin network
+        enum:
+        - testnet4
+        - signet
+        example: testnet4
+        in: path
+        name: network
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Three fee tier estimates
+          schema:
+            $ref: '#/definitions/bitcoin.FeeEstimates'
+        "404":
+          description: Network not configured
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "502":
+          description: No upstream provider reachable
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Current fee rate estimates
+      tags:
+      - fees
+  /bitcoin/{network}/tx/{txid}:
+    get:
+      description: Returns full transaction detail by txid. The mobile app calls this
+        after broadcast to poll for confirmation status.
+      parameters:
+      - description: Bitcoin network
+        enum:
+        - testnet4
+        - signet
+        example: testnet4
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Transaction ID (64 hex characters)
+        example: a1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d
+        in: path
+        name: txid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transaction detail
+          schema:
+            $ref: '#/definitions/bitcoin.Transaction'
+        "400":
+          description: Missing txid
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: Transaction not found
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "502":
+          description: No upstream provider reachable
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Fetch a single transaction
+      tags:
+      - transaction
+  /health:
+    get:
+      description: Returns "ok" when all configured networks have at least one live
+        provider. Returns "degraded" when some networks are impaired but still operational.
+        Returns HTTP 503 when any network has all its providers down.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service healthy or degraded
+          schema:
+            $ref: '#/definitions/server.HealthResponse'
+        "503":
+          description: At least one network fully down
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Service health check
+      tags:
+      - health
+schemes:
+- http
+- https
+swagger: "2.0"

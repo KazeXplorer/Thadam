@@ -1,0 +1,710 @@
+{
+    "schemes": [
+        "http",
+        "https"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "Bitcoin chain data proxy for the Thadam wallet. Aggregates data from mempool.space (with blockstream.info failover) and exposes a single stable endpoint for the mobile app. Supported networks: testnet4, signet.",
+        "title": "Thadam Chain Service",
+        "contact": {},
+        "version": "1.0.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {
+        "/bitcoin/{network}/addresses/{address}/txs": {
+            "get": {
+                "description": "Returns confirmed and unconfirmed transactions for the address, newest first. Use /txs/chain/{last_seen_txid} to paginate through large histories.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "address"
+                ],
+                "summary": "Transaction history for an address",
+                "parameters": [
+                    {
+                        "enum": [
+                            "testnet4",
+                            "signet"
+                        ],
+                        "type": "string",
+                        "example": "testnet4",
+                        "description": "Bitcoin network",
+                        "name": "network",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
+                        "description": "Bitcoin address",
+                        "name": "address",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of transactions (empty array if none)",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/bitcoin.Transaction"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or invalid address",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Network not configured",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "No upstream provider reachable",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bitcoin/{network}/addresses/{address}/txs/chain/{last_seen_txid}": {
+            "get": {
+                "description": "Returns the next page of confirmed transactions after last_seen_txid, newest first (up to 25). Unconfirmed transactions are not included — use /txs for those. Designed for incremental sync: the mobile app stores confirmed txs locally and calls this to page back through history without re-fetching.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "address"
+                ],
+                "summary": "Paginated confirmed transaction history",
+                "parameters": [
+                    {
+                        "enum": [
+                            "testnet4",
+                            "signet"
+                        ],
+                        "type": "string",
+                        "example": "testnet4",
+                        "description": "Bitcoin network",
+                        "name": "network",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
+                        "description": "Bitcoin address",
+                        "name": "address",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "a1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d",
+                        "description": "txid of the last transaction on the previous page",
+                        "name": "last_seen_txid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Next page of confirmed transactions (empty array if no more)",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/bitcoin.Transaction"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Missing address or last_seen_txid",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Network not configured or txid not found",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "No upstream provider reachable",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bitcoin/{network}/addresses/{address}/utxos": {
+            "get": {
+                "description": "Returns all unspent transaction outputs for the given address. Includes confirmed and unconfirmed UTXOs. The mobile app filters to confirmed-only when building transactions.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "address"
+                ],
+                "summary": "List UTXOs for an address",
+                "parameters": [
+                    {
+                        "enum": [
+                            "testnet4",
+                            "signet"
+                        ],
+                        "type": "string",
+                        "example": "testnet4",
+                        "description": "Bitcoin network",
+                        "name": "network",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
+                        "description": "Bitcoin address",
+                        "name": "address",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of UTXOs (empty array if none)",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/bitcoin.UTXO"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or invalid address",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Network not configured",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "No upstream provider reachable",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bitcoin/{network}/blocks/tip/height": {
+            "get": {
+                "description": "Returns the current confirmed chain tip height. The mobile app uses this with a transaction's block_height to compute confirmations: confirmations = tipHeight - tx.block_height + 1.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "blocks"
+                ],
+                "summary": "Current best block height",
+                "parameters": [
+                    {
+                        "enum": [
+                            "testnet4",
+                            "signet"
+                        ],
+                        "type": "string",
+                        "example": "testnet4",
+                        "description": "Bitcoin network",
+                        "name": "network",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Current chain tip height",
+                        "schema": {
+                            "$ref": "#/definitions/server.BlockHeightResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Network not configured",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "No upstream provider reachable",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bitcoin/{network}/broadcast": {
+            "post": {
+                "description": "Accepts a hex-encoded raw signed transaction (plain text body) and submits it to the Bitcoin network via the configured provider. Returns the txid on success. 422 means the provider rejected the tx (invalid script, insufficient fee, double-spend, etc.) — distinct from 502 which means the provider was unreachable. The service does not inspect or sign the transaction.",
+                "consumes": [
+                    "text/plain"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transaction"
+                ],
+                "summary": "Broadcast a signed transaction",
+                "parameters": [
+                    {
+                        "enum": [
+                            "testnet4",
+                            "signet"
+                        ],
+                        "type": "string",
+                        "example": "testnet4",
+                        "description": "Bitcoin network",
+                        "name": "network",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Hex-encoded signed raw transaction",
+                        "name": "tx",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Transaction accepted; txid returned",
+                        "schema": {
+                            "$ref": "#/definitions/server.BroadcastResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Empty or unreadable request body",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Network not configured",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Transaction rejected by provider (invalid tx, double-spend, etc.)",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "No upstream provider reachable",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bitcoin/{network}/fee-estimates": {
+            "get": {
+                "description": "Returns three fee tiers (fast / medium / economy) in sat/vB. When requires_confirmation is true the mobile app must show an explicit confirmation screen before broadcast (ARCHITECTURE.md A.14). All rates are bounds-checked: below MinSatPerVB or above MaxSatPerVB are rejected before being relayed.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "fees"
+                ],
+                "summary": "Current fee rate estimates",
+                "parameters": [
+                    {
+                        "enum": [
+                            "testnet4",
+                            "signet"
+                        ],
+                        "type": "string",
+                        "example": "testnet4",
+                        "description": "Bitcoin network",
+                        "name": "network",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Three fee tier estimates",
+                        "schema": {
+                            "$ref": "#/definitions/bitcoin.FeeEstimates"
+                        }
+                    },
+                    "404": {
+                        "description": "Network not configured",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "No upstream provider reachable",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bitcoin/{network}/tx/{txid}": {
+            "get": {
+                "description": "Returns full transaction detail by txid. The mobile app calls this after broadcast to poll for confirmation status.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transaction"
+                ],
+                "summary": "Fetch a single transaction",
+                "parameters": [
+                    {
+                        "enum": [
+                            "testnet4",
+                            "signet"
+                        ],
+                        "type": "string",
+                        "example": "testnet4",
+                        "description": "Bitcoin network",
+                        "name": "network",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "a1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d",
+                        "description": "Transaction ID (64 hex characters)",
+                        "name": "txid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Transaction detail",
+                        "schema": {
+                            "$ref": "#/definitions/bitcoin.Transaction"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing txid",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Transaction not found",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "No upstream provider reachable",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "description": "Returns \"ok\" when all configured networks have at least one live provider. Returns \"degraded\" when some networks are impaired but still operational. Returns HTTP 503 when any network has all its providers down.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Service health check",
+                "responses": {
+                    "200": {
+                        "description": "Service healthy or degraded",
+                        "schema": {
+                            "$ref": "#/definitions/server.HealthResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "At least one network fully down",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "bitcoin.FeeEstimates": {
+            "type": "object",
+            "properties": {
+                "economy": {
+                    "description": "Economy targets roughly 10+ block confirmation.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/bitcoin.FeeRate"
+                        }
+                    ]
+                },
+                "fast": {
+                    "description": "Fast targets roughly 1-2 block confirmation.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/bitcoin.FeeRate"
+                        }
+                    ]
+                },
+                "medium": {
+                    "description": "Medium targets roughly 3-6 block confirmation.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/bitcoin.FeeRate"
+                        }
+                    ]
+                }
+            }
+        },
+        "bitcoin.FeeRate": {
+            "type": "object",
+            "properties": {
+                "confirmationReason": {
+                    "description": "ConfirmationReason is a human-readable explanation for why confirmation\nis required. Empty when RequiresConfirmation is false.",
+                    "type": "string"
+                },
+                "requiresConfirmation": {
+                    "description": "RequiresConfirmation is true when the rate exceeds WarningThresholdSatPerVB.\n\nThe mobile app must show an explicit confirmation screen before\nbroadcasting any transaction built at this rate. This is the \"explicit\nconfirmation for anything unusual\" that A.14 mandates.",
+                    "type": "boolean"
+                },
+                "satPerVB": {
+                    "description": "SatPerVB is the fee rate in satoshis per virtual byte.",
+                    "type": "number",
+                    "format": "float64"
+                }
+            }
+        },
+        "bitcoin.Transaction": {
+            "type": "object",
+            "properties": {
+                "fee": {
+                    "description": "Fee is the miner fee paid, in satoshis.\nMay be zero for coinbase transactions.",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "Status is the confirmation state of the transaction.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/bitcoin.TxStatus"
+                        }
+                    ]
+                },
+                "txid": {
+                    "description": "Txid is the transaction identifier, hex-encoded (64 characters).",
+                    "type": "string"
+                },
+                "vin": {
+                    "description": "Vin is the list of inputs — the coins being spent by this transaction.\nThe mobile app compares input addresses against known wallet addresses to\ndetermine whether the transaction is a send (wallet address in Vin) or a\nreceive (wallet address only in Vout).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/bitcoin.TxInput"
+                    }
+                },
+                "vout": {
+                    "description": "Vout is the list of outputs. The mobile app uses this to determine\nwhich outputs belong to the wallet address and how much was received\nor sent (by comparing with known wallet addresses).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/bitcoin.TxOutput"
+                    }
+                }
+            }
+        },
+        "bitcoin.TxInput": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "description": "Address is the address that owned the spent output.\nEsplora resolves this from prevout.scriptpubkey_address at no extra cost.\nEmpty for coinbase inputs and non-standard scripts.",
+                    "type": "string"
+                },
+                "prev_txid": {
+                    "description": "PrevTxid is the txid of the transaction whose output is being spent.",
+                    "type": "string"
+                },
+                "prev_vout": {
+                    "description": "PrevVout is the output index within PrevTxid that is being spent.",
+                    "type": "integer"
+                }
+            }
+        },
+        "bitcoin.TxOutput": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "description": "Address is the bech32(m) address this output pays to.\nEmpty for non-standard scripts (OP_RETURN, bare multisig, etc.).",
+                    "type": "string"
+                },
+                "index": {
+                    "description": "Index is the output's position within the transaction (0-based).\nStored here so callers do not have to track array position separately.",
+                    "type": "integer"
+                },
+                "value": {
+                    "description": "Value is the output value in satoshis.",
+                    "type": "integer"
+                }
+            }
+        },
+        "bitcoin.TxStatus": {
+            "type": "object",
+            "properties": {
+                "block_height": {
+                    "description": "BlockHeight is the height of the block that confirmed this transaction.\nZero when Confirmed is false.",
+                    "type": "integer"
+                },
+                "block_time": {
+                    "description": "BlockTime is the Unix timestamp of the confirming block.\nZero when Confirmed is false.",
+                    "type": "integer"
+                },
+                "confirmed": {
+                    "description": "Confirmed is true when the transaction has at least one confirmation.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "bitcoin.UTXO": {
+            "type": "object",
+            "properties": {
+                "block_height": {
+                    "description": "BlockHeight is the block height at which the output was confirmed.\nZero when Confirmed is false.",
+                    "type": "integer"
+                },
+                "confirmed": {
+                    "description": "Confirmed is true when the transaction containing this output has at\nleast one confirmation. Unconfirmed UTXOs are included in the response\nbecause the wallet may want to show a pending balance, but the builder\nshould not spend them for a send — it cannot know whether they will\nconfirm, and spending them requires RBF support (§10).",
+                    "type": "boolean"
+                },
+                "txid": {
+                    "description": "Txid is the transaction ID of the transaction that created this output,\nas a hex string (64 characters, big-endian byte order).",
+                    "type": "string"
+                },
+                "value": {
+                    "description": "Value is the output's value in satoshis.",
+                    "type": "integer"
+                },
+                "vout": {
+                    "description": "Vout is the output index within that transaction.",
+                    "type": "integer"
+                }
+            }
+        },
+        "server.BlockHeightResponse": {
+            "type": "object",
+            "properties": {
+                "height": {
+                    "type": "integer",
+                    "example": 3851042
+                }
+            }
+        },
+        "server.BroadcastResponse": {
+            "type": "object",
+            "properties": {
+                "txid": {
+                    "type": "string",
+                    "example": "a1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d"
+                }
+            }
+        },
+        "server.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "provider unavailable for network testnet4"
+                }
+            }
+        },
+        "server.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "networks": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/server.NetworkHealthDoc"
+                    }
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "ok",
+                        "degraded"
+                    ],
+                    "example": "ok"
+                }
+            }
+        },
+        "server.NetworkHealthDoc": {
+            "type": "object",
+            "properties": {
+                "providers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/server.ProviderHealthDoc"
+                    }
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "healthy",
+                        "degraded",
+                        "down"
+                    ],
+                    "example": "healthy"
+                }
+            }
+        },
+        "server.ProviderHealthDoc": {
+            "type": "object",
+            "properties": {
+                "failures": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "healthy",
+                        "degraded",
+                        "down"
+                    ],
+                    "example": "healthy"
+                },
+                "url": {
+                    "type": "string",
+                    "example": "https://mempool.space/testnet4/api"
+                }
+            }
+        }
+    }
+}
